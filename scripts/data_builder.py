@@ -1,12 +1,17 @@
 from faker import Faker
 import pandas as pd
+from tqdm import tqdm
+from rich import print as rprint
+
 import random
 import os
 import json
+from math import floor
 
 from loc_generators import setup_faker_providers
-from parse import jsonl_to_json
+from parse import jsonl_to_json, check_alignment, count_tags
 #from context_gen import hf_api_completion
+from screen_interractions import get_lines
 
 fake = Faker(locale='ru_RU')
 fake = setup_faker_providers(fake)  # добавляем кастомные провайдеры!
@@ -73,23 +78,6 @@ def replaceAndLabel(message):
     
     return obj
 
-def count_tags(path=None, dict=None):
-    if path:
-        with open(path) as f:    
-            data = json.load(f)
-    elif dict:
-        data = dict
-
-    tags = []
-    for obj in data:
-        for ent in obj['entities']:
-            tags.append(ent[2])
-
-    tag_data = {}
-    for tag in set(tags):
-        tag_data[tag] =  tags.count(tag)
-    
-    return tag_data
     
 def generate_data(size, export_file=None):
 
@@ -107,52 +95,62 @@ def generate_data(size, export_file=None):
         'TIME': 'время - TIME', 
         'INTERNATIONAL': 'загранпаспорт - INTERNATIONAL', 
         'TICKET_NUMBER': 'номер билета - TICKET_NUMBER', 
-        'ORDER_NIMBER': 'номер бронирования или номер заказа - ORDER_NUMBER'}
+        'ORDER_NUMBER': 'номер бронирования или номер заказа - ORDER_NUMBER'}
     
     excluded_tags = []
 
-    n_each = round(size / len(tags))
-    n_batch = max(round(size / 100), 10)
+    n_each = round(max(size / len(tags), 5))
+    rel_batch = max(round(size / 100), 5)
+    n_batch = rel_batch if rel_batch < 20 else 20
+    
+    total_tags_needed = len(tags) * n_each
 
     data = []
+    last_percentage = 0
 
-    while len(excluded_tags) < len(tags): # балансировка данных по тегам
+    print('\n'*2)
+    with tqdm(total=100, colour="#2E271B", desc="generating data") as pbar:
+        while len(excluded_tags) < len(set(tags)): # балансировка данных по тегам
 
-        tag_combo = ''
-        for _ in range(random.randint(0, round(len(tags.keys()) / 2))):
-            flag = True
-            while flag:
-                new_tag = random.choice(list(tags.keys()))
-                print(new_tag, new_tag in excluded_tags)
-                if new_tag not in tag_combo and new_tag not in excluded_tags:
-                    tag_combo += tags[new_tag] + ', '
-                    flag = False
+            tag_combo = '' 
+            rnd_iter = random.randint(0, round(len(tags.keys()) / 2))
+            for _ in range(rnd_iter):
+                while True:
+                    new_tag = random.choice([key for key in list(tags.keys()) if key not in excluded_tags])
+                    if new_tag not in tag_combo and new_tag not in excluded_tags:
+                        tag_combo += tags[new_tag] + ', '
+                        break
+                    else:
+                        break
 
-        print(tag_combo)
+            request = f'сгенерируй {n_batch} строк в формате JSONL (каждая строчка формата "message": "_СООБЩЕНИЕ_") сообщений пользователей боту-помощнику авиакомпании, в которых они пишут ему свои персональные данные. Замени персональные данные в сообщениях специальными строками: {tag_combo}. В каждом сообщении встречаются все перечесленные теги. Пользователи иногда пишут неграмотно, встречаются сообщения разной длины. Теги не встречаются без контекста - в сообщении всегда есть другие слова. Иногда, но редко, пользователи пишут грубо. Пользователи часто не здороваются, иногда печатают в спешкеСтарайся не повторять формулировки'
+            
+            lines = [line for line in get_lines(request, n_batch)]
 
-        request = f'сгенерируй {n_batch} строк в формате JSONL (каждая строчка формата "message": "_СООБЩЕНИЕ_") сообщений пользователей боту-помощнику авиакомпании, в которых они пишут ему свои персональные данные. Замени персональные данные в сообщениях специальными строками: {tag_combo}. В каждом сообщении встречаются все перечесленные теги. Пользователи иногда пишут неграмотно, встречаются сообщения разной длины. Теги не встречаются без контекста - в сообщении всегда есть другие слова. Иногда, но редко, пользователи пишут грубо. Пользователи часто не здороваются, иногда печатают в спешкеСтарайся не повторять формулировки'
-        print('\nwaiting for response...\n')
-        lines = [json.loads(line) for line in hf_api_completion(request)]
+            for obj in lines:
+                try:
+                    data.append(replaceAndLabel(obj['message']))
+                except:
+                    pass
+            
+            count = count_tags(dict=data)
+            total = count['total_tags']
 
-        print(lines[0:10])
+            current_percentage = min(round(total / (total_tags_needed / 100)), 100)
+            pbar.update(current_percentage - last_percentage)
+            last_percentage = current_percentage
+            pbar.refresh()
+            
 
-        for obj in lines:
-            data.append(replaceAndLabel(obj['message']))
-        
-        count = count_tags(dict=data)
-        print(count)
-        for tag in tags.keys():
-            if tag in count.keys() and int(count[tag]) > n_each:
-                if tag not in excluded_tags:
-                    excluded_tags.append(tag)
-                    print(f'excluded {tag}')
+            for tag in tags.keys():
+                if tag in count.keys() and int(count[tag]) >= n_each:
+                    if tag not in excluded_tags:
+                        excluded_tags.append(tag)
 
-        print(len(tags), len(excluded_tags), excluded_tags)
 
     print(data[0:10])
     
     if export_file:
-        json.load(data)
         try:
             with open(export_file, 'x') as f:
                 json.dump(data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
@@ -168,23 +166,32 @@ def generate_data(size, export_file=None):
 
 
 
-
-
-
 if __name__ == '__main__':
-    print(fake.order_number())
-    # #print(generate_data(30, 'testfile.json'))
-    # raw_data = jsonl_to_json('data/test_gen.jsonl')
+    # print(fake.order_number())
+    path = 'data/autodata2.json'
+    print(generate_data(100, path))
+    print(count_tags(path))
+    #print(check_alignment(path)[2])
+    # raw_data = []
+    # with open('data/raw_data_kirill.json') as f:    
+    #     file = json.load(f)
+    #     for obj in file:
+    #         raw_data.append({
+    #             'message': obj['message']
+    #         })
+
     # processed_data = []
 
     # for obj in raw_data:
     #     processed_data.append(replaceAndLabel(obj['message']))
 
-    # with open('data/processed_test.json', 'w', encoding='utf-8') as f:
+    # with open('data/processed_kirill.json', 'w', encoding='utf-8') as f:
     #     f.truncate(0)
     #     json.dump(processed_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
 
     # # print(replaceAndLabel("Добрый день! Мой билет TICKET_NUMBER. Летим в COUNTRY. Дата рождения DOB."))
     # # print(fake.ticket_number())
 
-    # print(count_tags('data/processed_test.json'))
+    # print(count_tags('data/processed_kirill.json'))
+    # check_alignment('data/processed_kirill.json')
+

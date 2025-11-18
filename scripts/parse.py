@@ -8,9 +8,8 @@ from spacy.training import offsets_to_biluo_tags
 
 nlp = spacy.load("ru_core_news_sm")
 def transmute(dict, key):
-
     new_dict = {key: []}
-
+    
     try:
         for item in dict[key]:
             new_dict[key].append((item[0], item[1], item[2]))
@@ -112,9 +111,9 @@ def check_alignment(path, verbose=True):
                     print(f'misaligned: {item["misaligned"]}')
                     print('---')
                 faulty += 1
-            ratio = round(faulty / (len(data)/100))
-            if verbose:
-                print(f'\nTOTAL MISALLIGNED: {total_misalligned}\nTOTAL FAULTY EXAMPLES: {faulty}\nFAULTY PERCENTAGE: {ratio}%')
+        ratio = round(faulty / (len(data)/100))
+        if verbose:
+            print(f'\nTOTAL MISALLIGNED: {total_misalligned}\nTOTAL FAULTY EXAMPLES: {faulty}\nFAULTY PERCENTAGE: {ratio}%')
     
     return data, total_misalligned, faulty
 
@@ -160,10 +159,17 @@ def remove_faulty(path):
 
 
 if __name__ == '__main__':
-    with open('data/processed_kirill_nofaulty.json', 'w') as f:
-        f.truncate(0)
-        json.dump(remove_faulty('data/processed_kirill.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    print(count_tags('data/processed_kirill.json'))
-    print(count_tags('data/processed_kirill_nofaulty.json'))
+    # with open('data/processed_kirill_nofaulty.json', 'w') as f:
+    #     f.truncate(0)
+    #     json.dump(remove_faulty('data/processed_kirill.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
+    dirty = count_tags('data/processed_kirill.json')
+    clean = count_tags('data/processed_kirill_nofaulty.json')
+    
+    print('\nWITH_FAULTY')
+    for key in dirty.keys():
+        print(f'{key}: {dirty[key]}')
 
-#to_spacy('data/processed_data_ts.json', 'test_data_1.spacy')
+    print('\nNO_FAULTY')
+    for key in clean.keys():
+        print(f'{key}: {clean[key]}')
+

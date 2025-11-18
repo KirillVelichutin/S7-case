@@ -62,13 +62,8 @@ def get_lines(prompt, batch):
     if timeout:
         #input('Generation has been timed out. Ensure that the cursor is in the right position to insert the next batch-prompt into a text field of a chatbot and Press any key to continue, otherwise the progress mught be lost.')
         input('stalled.')
-        return {'message': 'дата DATE телефон PHONE почта EMAIL время TIME спасибо'}
+        return {'message': 'placeholder'}
     
             
 
-if __name__ == '__main__':
-    prompt = "сгенерируй 5 строк в формате JSONL (каждаф строчка формата {'message': '_СООБЩЕНИЕ_'}) сообщений пользователей боту-помощнику авиакомпании, в которых они пишут ему свои персональные данные. Замени персональные данные в сообщениях специальными строками: номер паспорта - PASSPORT, дата рождения - DOB, номер билета - TICKET_NUMBER. В каждом сообщении встречаются все перечесленные теги. Пользователи иногда пишут неграмотно, встречаются сообщения разной длины. Теги не встречаются без контекста - в сообщении всегда есть другие слова. Иногда, но редко, пользователи пишут грубо. Пользователи часто не здороваются, иногда печатают в спешке. Старайся не повторять формулировки."
-    data = get_lines(prompt, 5)
-    for line in data:
-        print(line)
 

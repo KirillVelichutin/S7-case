@@ -1,51 +1,13 @@
-from faker import Faker
-import pandas as pd
-from tqdm import tqdm
-from rich import print as rprint
-
 import random
-import os
 import json
-from math import floor
 
-from loc_generators import setup_faker_providers
-from parse import jsonl_to_json, check_alignment, count_tags
-#from context_gen import hf_api_completion
+from tqdm import tqdm
+
+from parse import count_tags
 from screen_interractions import get_lines
-
-fake = Faker(locale='ru_RU')
-fake = setup_faker_providers(fake)  # добавляем кастомные провайдеры!
-df = pd.read_csv(os.path.join('data', 'airports_rus.csv'))
-
-TAGS = ['PHONE', 'PASSPORT', 'NAME', 'DOB', 'EMAIL', 'AIRPORT', 'CITY', 'COUNTRY', 'FLIGHT', 'TIME', 'DATE',  'INTERNATIONAL', 'TICKET_NUMBER', 'ORDER_NUMBER']
-
-DATAGEN = {
-    'PHONE': lambda: fake.phone_number(),
-    'PASSPORT': lambda: fake.passport_number(),
-    'NAME': lambda: fake.name(),
-    'DOB': lambda: fake.date_of_birth(),
-    'EMAIL': lambda: fake.email(),
-    'AIRPORT': lambda: random.choice(df[random.choice(['Название аэропорта', 'Код ИАТА'])].dropna().reset_index(drop=True)), 
-    'FLIGHT': lambda: f"{random.choice(['SU', 'AF', 'LH', 'TK', 'BA', 'AY', 'S7', 'U6'])}{random.randint(100, 9999)}",
-    'CITY': lambda: fake.city_name(),
-    'TIME': lambda: fake.time(),
-    'DATE': lambda: fake.date(),
-    'INTERNATIONAL': lambda: fake.international_passport(),
-    'TICKET_NUMBER': lambda: fake.ticket_number(),
-    'ORDER_NUMBER': lambda: fake.order_number(),
-    'COUNTRY': lambda: fake.country()
-    #'BOOKING_REF': lambda: fake.booking_ref(),
-    #'BOARDING_PASS': lambda: fake.boarding_pass(),
-    #'EMD_NUMBER': lambda: fake.emd_number(),
-    #'TICKET': lambda: ''.join([str(random.randint(0, 9)) for _ in range(13)]),
-    #'BIRTH_CERTIFICATE': lambda: fake.birth_certificate(),
-    #'VISA': lambda: fake.visa(),
-    
-}
+from statics import DATAGEN, TAGS, PROMPT_KEYS, PROMPT_CONTEXT
 
 def replaceAndLabel(message):
-    
-    global TAGS, DATAGEN
 
     obj = {
         'text': message,
@@ -81,22 +43,8 @@ def replaceAndLabel(message):
     
 def generate_data(size, export_file=None):
 
-    tags = {
-        'PASSPORT': 'номер паспорта - PASSPORT', 
-        'PHONE': 'номер телефона - PHONE', 
-        'NAME': 'ФИО - NAME', 
-        'EMAIL': 'электронная почта - EMAIL', 
-        'DOB': 'дата рождения - DOB', 
-        'AIRPORT': 'название или код аэропорта - AIRPORT', 
-        'CITY': 'город - CITY', 
-        'COUNTRY': 'страна - COUNTRY', 
-        'FLIGHT': 'номер рейса - FLIGHT', 
-        'DATE': 'дата - DATE', 
-        'TIME': 'время - TIME', 
-        'INTERNATIONAL': 'загранпаспорт - INTERNATIONAL', 
-        'TICKET_NUMBER': 'номер билета - TICKET_NUMBER', 
-        'ORDER_NUMBER': 'номер бронирования или номер заказа - ORDER_NUMBER'}
-    
+    tags = PROMPT_KEYS
+    context = PROMPT_CONTEXT
     excluded_tags = []
 
     n_each = round(max(size / len(tags), 5))
@@ -113,8 +61,7 @@ def generate_data(size, export_file=None):
         while len(excluded_tags) < len(set(tags)): # балансировка данных по тегам
 
             tag_combo = '' 
-            rnd_iter = random.randint(0, round(len(tags.keys()) / 2))
-            for _ in range(rnd_iter):
+            for _ in range(random.randint(1, round(len(tags.keys()) / 2))):
                 while True:
                     new_tag = random.choice([key for key in list(tags.keys()) if key not in excluded_tags])
                     if new_tag not in tag_combo and new_tag not in excluded_tags:
@@ -122,8 +69,18 @@ def generate_data(size, export_file=None):
                         break
                     else:
                         break
+        
+            context_list = []
+            rnd_iter = random.randint(1, len(context) - 1)
+            for _ in range(rnd_iter):
+                while len(context_list) < rnd_iter:
+                    new_str = random.choice(context)()
+                    if new_str not in context_list:
+                        context_list.append(new_str)
+            context_combo = ' '.join(context_list)
 
-            request = f'сгенерируй {n_batch} строк в формате JSONL (каждая строчка формата "message": "_СООБЩЕНИЕ_") сообщений пользователей боту-помощнику авиакомпании, в которых они пишут ему свои персональные данные. Замени персональные данные в сообщениях специальными строками: {tag_combo}. В каждом сообщении встречаются все перечесленные теги. Пользователи иногда пишут неграмотно, встречаются сообщения разной длины. Теги не встречаются без контекста - в сообщении всегда есть другие слова. Иногда, но редко, пользователи пишут грубо. Пользователи часто не здороваются, иногда печатают в спешкеСтарайся не повторять формулировки'
+
+            request = f'сгенерируй {n_batch} строк в формате JSONL (каждая строчка формата "message": "_СООБЩЕНИЕ_") сообщений пользователей боту-помощнику авиакомпании, в которых они пишут ему свои персональные данные. Замени персональные данные в сообщениях специальными строками: {tag_combo}. В каждом сообщении встречаются все перечесленные теги. Теги не встречаются без контекста - в сообщении всегда есть другие слова. Пользователи не здороваются. {context_combo} Не повторяй формулировки'
             
             lines = [line for line in get_lines(request, n_batch)]
 
@@ -166,32 +123,5 @@ def generate_data(size, export_file=None):
 
 
 
-if __name__ == '__main__':
-    # print(fake.order_number())
-    path = 'data/autodata2.json'
-    print(generate_data(100, path))
-    print(count_tags(path))
-    #print(check_alignment(path)[2])
-    # raw_data = []
-    # with open('data/raw_data_kirill.json') as f:    
-    #     file = json.load(f)
-    #     for obj in file:
-    #         raw_data.append({
-    #             'message': obj['message']
-    #         })
 
-    # processed_data = []
-
-    # for obj in raw_data:
-    #     processed_data.append(replaceAndLabel(obj['message']))
-
-    # with open('data/processed_kirill.json', 'w', encoding='utf-8') as f:
-    #     f.truncate(0)
-    #     json.dump(processed_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
-
-    # # print(replaceAndLabel("Добрый день! Мой билет TICKET_NUMBER. Летим в COUNTRY. Дата рождения DOB."))
-    # # print(fake.ticket_number())
-
-    # print(count_tags('data/processed_kirill.json'))
-    # check_alignment('data/processed_kirill.json')
 

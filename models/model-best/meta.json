@@ -21,12 +21,14 @@
 
     ],
     "ner":[
+      "AIRPORT",
       "CITY",
       "COUNTRY",
       "DATE",
       "DOB",
       "EMAIL",
       "FLIGHT",
+      "INTERNATIONAL",
       "NAME",
       "ORDER_NUMBER",
       "PASSPORT",
@@ -51,22 +53,7 @@
     "ents_p":1.0,
     "ents_r":1.0,
     "ents_per_type":{
-      "EMAIL":{
-        "p":1.0,
-        "r":1.0,
-        "f":1.0
-      },
-      "TIME":{
-        "p":1.0,
-        "r":1.0,
-        "f":1.0
-      },
-      "ORDER_NUMBER":{
-        "p":1.0,
-        "r":1.0,
-        "f":1.0
-      },
-      "COUNTRY":{
+      "NAME":{
         "p":1.0,
         "r":1.0,
         "f":1.0
@@ -81,12 +68,12 @@
         "r":1.0,
         "f":1.0
       },
-      "CITY":{
+      "EMAIL":{
         "p":1.0,
         "r":1.0,
         "f":1.0
       },
-      "TICKET_NUMBER":{
+      "TIME":{
         "p":1.0,
         "r":1.0,
         "f":1.0
@@ -101,18 +88,43 @@
         "r":1.0,
         "f":1.0
       },
+      "COUNTRY":{
+        "p":1.0,
+        "r":1.0,
+        "f":1.0
+      },
+      "ORDER_NUMBER":{
+        "p":1.0,
+        "r":1.0,
+        "f":1.0
+      },
+      "AIRPORT":{
+        "p":1.0,
+        "r":1.0,
+        "f":1.0
+      },
+      "CITY":{
+        "p":1.0,
+        "r":1.0,
+        "f":1.0
+      },
+      "INTERNATIONAL":{
+        "p":1.0,
+        "r":1.0,
+        "f":1.0
+      },
       "PHONE":{
         "p":1.0,
         "r":1.0,
         "f":1.0
       },
-      "NAME":{
+      "TICKET_NUMBER":{
         "p":1.0,
         "r":1.0,
         "f":1.0
       }
     },
-    "tok2vec_loss":1302.4594423363,
-    "ner_loss":103.3621368408
+    "tok2vec_loss":177.5095446669,
+    "ner_loss":30.7866382599
   }
 }

@@ -4,6 +4,8 @@ from spacy.tokens import DocBin
 from thinc.api import Config
 import spacy
 
+from visualizer import visualize_from_jsonl
+
 
 def training(config_path, output_dir, train_path, dev_path):
     config = Config().from_disk(config_path)
@@ -27,11 +29,11 @@ def training(config_path, output_dir, train_path, dev_path):
     elif n_examples < 10000:
         batch_size = 64  
         max_epochs = 50
-        eval_freq = 200
+        eval_freq = 25
     else:
         batch_size = 128
         max_epochs = 20
-        eval_freq = 500
+        eval_freq = 10
         
         
     config["nlp"]["batch_size"] = batch_size
@@ -41,6 +43,11 @@ def training(config_path, output_dir, train_path, dev_path):
     config["training"]["max_steps"] = 0
     config["training"]["eval_frequency"] = eval_freq
     
+    config["training"]["logger"]["@loggers"] = "spacy.ConsoleLogger.v3"
+    config["training"]["logger"]["progress_bar"] = "eval"
+    config["training"]["logger"]["console_output"] = "true"
+    config["training"]["logger"]["output_file"] = "../history/training_history.jsonl"
+
     
     config.to_disk(config_path)
     print("Config updated")
@@ -55,13 +62,9 @@ def training(config_path, output_dir, train_path, dev_path):
     ]
     
     result = subprocess.run(cmd, capture_output=True, text=True)
-    
-    if result.returncode == 0:
-        print("Training completed successfully!")
-        print(result.stdout)
-    else:
-        print("Training failed!")
-        print(result.stderr)
+        
+    print(result.stdout)
+
 
 
 if __name__ == '__main__':
@@ -76,3 +79,5 @@ if __name__ == '__main__':
             train_path,
             dev_path
             )
+    
+    visualize_from_jsonl("../history/training_history.jsonl")

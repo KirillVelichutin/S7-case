@@ -10,6 +10,7 @@ dependencies = [
     "matplotlib>=3.10.7",
     "pandas>=2.3.3",
     "pip>=25.3",
+    "pyautogui>=0.9.54",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
     "spacy>=3.8.7",

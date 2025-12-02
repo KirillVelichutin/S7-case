@@ -1,6 +1,12 @@
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import spacy
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 def read_spacy_jsonl_logs(jsonl_file_path):
     
@@ -98,5 +104,85 @@ def create_training_plots(df_train, df_eval):
     
     plt.tight_layout()
     
-    plt.savefig('../history/training_history_analysis.png', dpi=300, bbox_inches='tight')
-    print("График сохранен как 'training_history_analysis.png'")
+    plt.savefig('../analysis/training_history/training_history_analysis.png', dpi=300, bbox_inches='tight')
+    print("График истории обучения модели сохранен как 'analysis/training_history/training_history_analysis.png'")
+
+
+def create_confusion_matrix(model_path, test_data):
+    nlp = spacy.load(model_path)
+    
+    
+    true_labels = []
+    pred_labels = []
+    
+    for text, annotations in test_data:
+        doc = nlp(text)
+        
+        true_entities = {(start, end): label for start, end, label in annotations["entities"]}
+        
+        token_true_labels = []
+        token_pred_labels = []
+        
+        for token in doc:
+            true_label = "O"
+            for (start, end), label in true_entities.items():
+                if start <= token.idx < end:
+                    true_label = label
+                    break
+            
+            token_true_labels.append(true_label)
+            
+            pred_label = "O"
+            for ent in doc.ents:
+                if ent.start_char <= token.idx < ent.end_char:
+                    pred_label = ent.label_
+                    break
+            
+            token_pred_labels.append(pred_label)
+        
+        true_labels.extend(token_true_labels)
+        pred_labels.extend(token_pred_labels)
+    
+    labels = sorted(set(true_labels) | set(pred_labels))
+    cm = confusion_matrix(true_labels, pred_labels, labels=labels)
+    
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=labels, yticklabels=labels)
+    plt.title('Матрица ошибок для NER')
+    plt.xlabel('Предсказанные метки')
+    plt.ylabel('Истинные метки')
+    plt.xticks(rotation=45)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    
+    plt.savefig('../analysis/test_results/confusion_matrix.png', dpi=300, bbox_inches='tight')
+    
+    
+    entity_error_ratio(cm, labels)
+    
+    return cm, labels
+
+
+def entity_error_ratio(cm, labels):
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cm_norm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+    cm_norm = np.nan_to_num(cm_norm)
+
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Purples', xticklabels=labels, yticklabels=labels)
+    plt.title('Матрица ошибок NER — Нормализованная (% от истинной метки)')
+    plt.xlabel('Предсказанные метки')
+    plt.ylabel('Истинные метки')
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    
+    plt.savefig('../analysis/test_results/entity_error_ratio.png', dpi=300, bbox_inches='tight')
+    
+    print(
+        "\n\n=== Матрицы ошибок сохранены как ===", 
+        "'analysis/test_results/confusion_matrix.png'", 
+        "'analysis/test_results/entity_error_ratio.png'",
+        sep='\n'
+        ) 

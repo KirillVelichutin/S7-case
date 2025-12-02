@@ -21,13 +21,13 @@ def read_data(data_path):
     data = []
     
     if format_type == 'jsonl':
-        with open(data_path, 'r', encoding='utf-8') as f:
+        with open(data_path, 'r', encoding='utf-8-sig') as f:
             for line in f:
                 if line.strip():
                     data.append(json.loads(line))
                     
     elif format_type == 'json':
-        with open(data_path, 'r', encoding='utf-8') as f:
+        with open(data_path, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
             
             if isinstance(data, dict) and "entities" in data:

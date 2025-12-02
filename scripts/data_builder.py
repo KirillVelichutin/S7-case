@@ -178,29 +178,8 @@ if __name__ == '__main__':
 
     for obj in raw_data:
         processed_data.append(replaceAndLabel(obj['message']))
+        
     
-    
-    train_ratio = 0.8
-    split_index = int(len(processed_data) * train_ratio)
-    train_data = processed_data[:split_index]
-    val_data = processed_data[split_index:]
-    
-    with open('../data/json_format/train_data.json', 'w', encoding='utf-8') as f:
+    with open('../data/json_format/processed_data.json', 'w', encoding='utf-8-sig') as f:
         f.truncate(0)
-        json.dump(train_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    
-    with open('../data/json_format/val_data.json', 'w', encoding='utf-8') as f:
-        f.truncate(0)
-        json.dump(val_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
-
-    with open('../data/json_format/train_nofaulty.json', 'w') as f:
-        f.truncate(0)
-        json.dump(remove_faulty('../data/json_format/train_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    
-    with open('../data/json_format/val_nofaulty.json', 'w') as f:
-        f.truncate(0)
-        json.dump(remove_faulty('../data/json_format/val_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-
-    
-    convert_to_spacy('../data/json_format/train_nofaulty.json', "train")
-    convert_to_spacy('../data/json_format/val_nofaulty.json', "dev")
+        json.dump(processed_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))

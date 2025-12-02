@@ -32,8 +32,8 @@ def create_config(lang, pipeline_components, path_to_save):
 if __name__ == '__main__':
     
     lang = "ru"
-    pipeline_components = ["ner"]
-    path_to_save  = "./config/config.cfg"
+    pipeline_components = ["tok2vec","ner"]
+    path_to_save  = "../models/config.cfg"
     
     
     create_config(

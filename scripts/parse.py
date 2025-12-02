@@ -1,9 +1,11 @@
 import json
-
 import spacy
+import string
+import pandas as pd
 from spacy.tokens import DocBin
 from spacy.training import offsets_to_biluo_tags
 
+from converter import convert_to_spacy
 
 
 nlp = spacy.load("ru_core_news_sm")
@@ -44,7 +46,6 @@ def to_spacy(path, save_to):
     for item in data:
         doc = nlp.make_doc(item["text"])
         
-        # Add entities
         if "entities" in item:
             entities = []
             for start, end, label in item["entities"]:
@@ -53,7 +54,6 @@ def to_spacy(path, save_to):
                     entities.append(span)
             doc.ents = entities
         
-        # Add categories
         if "cats" in item:
             doc.cats = item["cats"]
         
@@ -159,17 +159,100 @@ def remove_faulty(path):
     return nofaulty
 
 
-if __name__ == '__main__':
-    with open('../data/train_nofaulty.json', 'w') as f:
-        f.truncate(0)
-        json.dump(remove_faulty('../data/train_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    print(count_tags('../data/train_data.json'))
-    print(count_tags('../data/train_nofaulty.json'))
+def prepare_data(path):
+    with open(path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+            
+    train_ratio = 0.8
+    split_index = int(len(data) * train_ratio)
+    train_data = data[:split_index]
+    val_data = data[split_index:]
     
-    with open('../data/val_nofaulty.json', 'w') as f:
+    with open('../data/json_format/train_data.json', 'w', encoding='utf-8') as f:
         f.truncate(0)
-        json.dump(remove_faulty('../data/train_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    print(count_tags('../data/train_data.json'))
-    print(count_tags('../data/val_nofaulty.json'))
+        json.dump(train_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
+    
+    with open('../data/json_format/val_data.json', 'w', encoding='utf-8') as f:
+        f.truncate(0)
+        json.dump(val_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
 
-#to_spacy('data/processed_data_ts.json', 'test_data_1.spacy')
+    with open('../data/json_format/train_nofaulty.json', 'w') as f:
+        f.truncate(0)
+        json.dump(remove_faulty('../data/json_format/train_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
+    
+    with open('../data/json_format/val_nofaulty.json', 'w') as f:
+        f.truncate(0)
+        json.dump(remove_faulty('../data/json_format/val_data.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
+
+    
+    convert_to_spacy('../data/json_format/train_nofaulty.json', "train")
+    convert_to_spacy('../data/json_format/val_nofaulty.json', "dev")
+
+
+def process_request(nlp, user_message):
+    doc = nlp(user_message)
+    
+    df = pd.read_csv('../data/passports_regions_data.csv')
+    val_passport_codes = list(map(str, df['Код в серии паспорта РФ'].tolist()))
+    
+    df = pd.read_csv('../data/international_data.csv')
+    val_international_codes = list(map(str, df['Код принадлежности документа'].tolist()))
+    
+    ents_data = []
+    
+    for ent in doc.ents:
+        text = ent.text
+        ent_type = ent.label_
+
+        if ent_type == "PASSPORT" or ent_type == "INTERNATIONAL":
+            spec_chars = string.punctuation + '«»\t—…’'
+            text = "".join([ch for ch in text if ch not in spec_chars])
+            text = "".join(text.split())
+            text = text.lower()
+            
+            print(text[:2])
+            
+            if ent_type == "PASSPORT":
+                if text[:2] in val_passport_codes:
+                    ent_type = "VALID_PASSPORT"
+                else:
+                    ent_type = "INVALID_PASSPORT"
+
+            elif ent_type == "INTERNATIONAL":
+                if text[:2] in val_international_codes:
+                    ent_type = "VALID_INTERNATIONAL"
+                else:
+                    ent_type = "INVALID_INTERNATIONAL"
+        
+        # if ent_type == "DOCUMENT":
+        #     passport_pattern = r'\b(?:\d{2}\s?\d{2})\s?\d{6}\b'
+        #     passport = re.findall(passport_pattern, user_message)
+        #     international_pattern = r'\b(?:\d{2}\s?\d{7}\b'
+        #     international = re.findall(international_pattern, user_message)
+        #     if ent in passport:
+        #         ent_type = "PASSPORT"
+        #     elif ent in international:
+        #         ent_type = "INTERNATIONAL"
+        
+        ents_data.append({
+            "token": text,
+            "ner_tag": ent_type
+        })
+
+    result = {
+        "text": user_message,
+        "tokens": ents_data
+    }
+    
+    
+    output = json.dumps(result, ensure_ascii=False, indent=2)
+    return output
+
+
+if __name__ == '__main__':
+    nlp = spacy.load("../models/model-best")
+    
+    user_message = "Сервис - ГОВНО! Почему Артем чемодана по рейсу ещё нет?!!!! Летел 12.03.2025 в Астану. Держите, блядь, данные моего внутреннего паспорта 8952 100590 и этого грёбаного загранника 72-2720007."
+    
+    
+    print(process_request(nlp, user_message))

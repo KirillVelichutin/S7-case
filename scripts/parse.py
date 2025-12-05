@@ -201,16 +201,13 @@ def process_request(nlp, user_message):
     ents_data = []
     
     for ent in doc.ents:
-        text = ent.text
+        text = ent.text.upper()
         ent_type = ent.label_
 
         if ent_type == "PASSPORT" or ent_type == "INTERNATIONAL":
             spec_chars = string.punctuation + '«»\t—…’'
             text = "".join([ch for ch in text if ch not in spec_chars])
             text = "".join(text.split())
-            text = text.lower()
-            
-            print(text[:2])
             
             if ent_type == "PASSPORT":
                 if text[:2] in val_passport_codes:
@@ -223,6 +220,18 @@ def process_request(nlp, user_message):
                     ent_type = "VALID_INTERNATIONAL"
                 else:
                     ent_type = "INVALID_INTERNATIONAL"
+                    
+        elif ent_type == "COUNTRY" or ent_type == "NAME" or ent_type == "CITY":
+            nlp = spacy.load("ru_core_news_sm")
+            doc = nlp(text)
+            
+            normalized = []
+            
+            for token in doc:
+                normalized.append(token.lemma_.upper())
+            
+            text = ' '.join(normalized)
+        
         
         # if ent_type == "DOCUMENT":
         #     passport_pattern = r'\b(?:\d{2}\s?\d{2})\s?\d{6}\b'
@@ -252,7 +261,7 @@ def process_request(nlp, user_message):
 if __name__ == '__main__':
     nlp = spacy.load("../models/model-best")
     
-    user_message = "Сервис - ГОВНО! Почему Артем чемодана по рейсу ещё нет?!!!! Летел 12.03.2025 в Астану. Держите, блядь, данные моего внутреннего паспорта 8952 100590 и этого грёбаного загранника 72-2720007."
+    user_message = "Сервис - ГОВНО! Почему Артем чемодана по рейсу ещё нет?!!!! Летел 12.03.2025 в Мексику. Держите, блядь, данные моего внутреннего паспорта 8952 100590 и этого грёбаного загранника 72-2720007."
     
     
     print(process_request(nlp, user_message))

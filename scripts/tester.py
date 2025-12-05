@@ -118,7 +118,7 @@ def analyze_boundary_errors(
 
 if __name__ == "__main__":
     model_path = "../models/model-best"
-    data_path = "../data/json_format/processed_data.json"
+    data_path = "../data/initial_data/autodata4_nofaulty.json"
     
     TEST_DATA = read_data(data_path)
 

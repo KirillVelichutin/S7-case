@@ -84,7 +84,7 @@ if __name__ == '__main__':
     train_path = "../data/spacy_format/train.spacy"
     dev_path = "../data/spacy_format/dev.spacy"
     
-    prepare_data("../data/initial_data/composit1.json")
+    prepare_data("../data/initial_data/composit2.json")
     
     model = "null"
     

@@ -4,8 +4,6 @@ import spacy
 from spacy.tokens import DocBin
 from spacy.training import offsets_to_biluo_tags
 
-
-
 nlp = spacy.load("ru_core_news_sm")
 def transmute(dict, key):
     new_dict = {key: []}
@@ -34,7 +32,6 @@ def examples(path):
 
 def to_spacy(path, save_to):
 
-    nlp = spacy.load('ru_core_news_sm')
     doc_bin = DocBin()
     
     with open(path, "r") as f:
@@ -118,6 +115,7 @@ def check_alignment(path, verbose=True):
     return data, total_misalligned, faulty
 
 def count_tags(path=None, dict=None):
+    data = []
     if path:
         with open(path) as f:    
             data = json.load(f)
@@ -158,18 +156,56 @@ def remove_faulty(path):
     return nofaulty
 
 
-if __name__ == '__main__':
-    # with open('data/processed_kirill_nofaulty.json', 'w') as f:
-    #     f.truncate(0)
-    #     json.dump(remove_faulty('data/processed_kirill.json'), f, ensure_ascii=False, indent=1, separators=(',', ': '))
-    dirty = count_tags('data/processed_kirill.json')
-    clean = count_tags('data/processed_kirill_nofaulty.json')
     
-    print('\nWITH_FAULTY')
-    for key in dirty.keys():
-        print(f'{key}: {dirty[key]}')
 
-    print('\nNO_FAULTY')
-    for key in clean.keys():
-        print(f'{key}: {clean[key]}')
+if __name__ == '__main__':
+    # path = 'data/additional_nofaulty.json'
+    # with open(path, 'x') as j:
+    #     j.truncate(0)
+    #     json.dump(remove_faulty('data/additional.json') , j, ensure_ascii=False, indent=1, separators=(',', ': '))
+
+    # print(check_alignment(path)[2])
+    # print(count_tags(path))
+
+    # with open('data/composit1.json') as f:
+    #     main_data = json.load(f)
+
+    # with open('data/additional2.json') as f:
+    #     add_data = json.load(f)
+    
+    # full_data = main_data + add_data
+    # random.shuffle(full_data)
+
+
+    # with open('data/composit2.json', 'w') as f:
+    #     f.truncate(0)
+    #     json.dump(full_data, f, ensure_ascii=False, indent=1, separators=(',', ': '))
+        
+    # print(count_tags('data/composit2.json'))
+
+    import spacy
+    nlp = spacy.load('ru_core_news_sm')
+
+    def ngrams(text, n):
+        tokens = [token for token in nlp(text)]
+        ngrams = []
+        for i in range(len(tokens)-n+1):
+            if i == 0:
+                ngrams.append(' '.join(tokens[i:i+n]))
+            else:
+                ngrams.append(' '.join(tokens[i:i+n]))
+
+        return ngrams
+    
+    model = spacy.load('model_path')
+    def extract_entities(text):
+        recognized = []
+        for ngram in ngrams(text):
+            recognized.append(model(ngram).ents)
+        return recognized
+
+
+    
+    print(ngrams('Привет, как дела? меня зовут максим, приятно познакомиться', 2))
+    
 

@@ -40,20 +40,24 @@ def get_lines(prompt, batch):
     pyautogui.move(0, -250)
     entry = time.time()
     timeout = False
+    
     while True:
         pyautogui.click()
         pyautogui.hotkey('ctrl', 'a')
         pyautogui.hotkey('ctrl', 'c')
-        
-        new_data = pyperclip.paste()
-       # print(extract_json_from_text(new_data)[:batch + 2:1])
+
+        try:
+            new_data = pyperclip.paste()
+        except:
+            continue
+
         if new_data != old_data:
             old_data = new_data
         elif ('{' + id + '}') in new_data.replace(' ', ''):
             pyautogui.move(0, 250)
             return extract_json_from_text(new_data)[-2:-(batch + 2):-1]
         curr = time.time()
-        if curr - entry > 80:
+        if curr - entry > 180:
             timeout = True
             break
 
@@ -61,8 +65,7 @@ def get_lines(prompt, batch):
     
     if timeout:
         #input('Generation has been timed out. Ensure that the cursor is in the right position to insert the next batch-prompt into a text field of a chatbot and Press any key to continue, otherwise the progress mught be lost.')
-        input('stalled.')
-        return {'message': 'placeholder'}
+        return 'STALLED'
     
             
 

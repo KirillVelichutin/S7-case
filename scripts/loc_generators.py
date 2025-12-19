@@ -15,9 +15,7 @@ class RussianDocumentsProvider(BaseProvider):
         formats = [
             f"{series} {number}",           # 65 1234567
             f"{series}{number}",            # 651234567
-            f"{series}-{number}",           # 65-1234567
-            f"серия {series} номер {number}", # серия 65 номер 1234567
-            f"загранпаспорт {series} {number}" # с указанием документа
+            f"{series}-{number}"            # 65-1234567
         ]
         return random.choice(formats)
     
@@ -200,3 +198,69 @@ def get_all_document_types():
         'EMD_NUMBER',
         'ORDER_NUMBER'
     ]
+
+HOURS = [
+    "час",
+    "два",
+    "три",
+    "четыре",
+    "пять",
+    "шесть",
+    "семь",
+    "восемь",
+    "девять",
+    "десять",
+    "одиннадцать",
+    "двенадцать",
+    "тринадцать",
+    "четырнадцать",
+    "пятнадцать",
+    "шестнадцать",
+    "семнадцать",
+    "восемнадцать",
+    "девятнадцать",
+    "двадцать",
+    "двадцать один",
+    "двадцать два",
+    "двадцать три"
+]
+
+MINUTES = [
+    "пятнадцать",
+    "тридцать",
+    "сорок",
+    "пятьдесят",
+    "сорок пять",
+    "двадцать",
+    "двадцать пять",
+    "тридцать пять",
+    "десять",
+    "ноль пять"
+]
+
+HALF = [
+    "первого",
+    "второго",
+    "третьего",
+    "четвёртого",
+    "пятого",
+    "шестого",
+    "седьмого",
+    "восьмого",
+    "девятого",
+    "десятого",
+    "одинадцатого",
+    "двенадцатого"
+]
+
+
+def worded_time():
+    # return noiser.add_noise(random.choice((f'{random.choice(HOURS)} {random.choice(MINUTES)}', f'пол {random.choice(HALF)}')))
+    return random.choice((f'{random.choice(HOURS)} {random.choice(MINUTES)}', f'пол {random.choice(HALF)}'))
+
+from get_datetime import MONTHS, NUMBERS
+def worded_date():
+    month = MONTHS[random.choice(list(MONTHS.keys()))][1]
+    day = NUMBERS[random.choice(list(NUMBERS.keys()))][random.choice((1, 2))]
+    year = random.randint(1900, 3000)
+    return random.choice((f'{day} {month}', f'{month} {day}', f'{day} {month} {year}', f'{month} {day} {year}'))

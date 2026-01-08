@@ -2,6 +2,7 @@ import spacy
 
 from get_datetime import parse_time, parse_date
 from get_docs import process_request
+from get_airports import get_airports, is_airport
 
 rucore = spacy.load("ru_core_news_sm")
 datetime = spacy.load('models/ru_date_time/model-best')
@@ -24,9 +25,12 @@ class S7ner():
         tags = []
 
         rucore_doc = rucore(text)
+        locs = []
         for ent in rucore_doc.ents:
-            if ent.label_ in ("PER", "LOC"):
+            if ent.label_ == "PER":
                 tags.append((self.conversiontable[ent.label_], ent.text))
+            if ent.label_ == "LOC":
+                locs.append(ent.text)
 
         timedate_doc = datetime(text)
         timedate_spans = timedate_doc.spans['sc']
@@ -34,13 +38,25 @@ class S7ner():
             tags.append((span.label_, str(self.standard[span.label_](span.text)), span.text))
 
         docs = process_request(text)
-            
+        
+        airports = get_airports(text)
+
+        # resolving airport/location conflict
+        for airport in airports:
+            for loc in locs:
+                if airport == is_airport(loc):
+                    locs.pop(locs.index(loc))
+        for loc in locs:
+            tags.append(('location', loc))
+        for airport in airports:
+            tags.append(('airport', airport))
+                
         return tags + docs
 
 
 if __name__ == "__main__":
     ner = S7ner()
-    message = "здравствуйте! время вылета 17:30, дата первое марта. меня зоыут владимир путин и я лечу в индию. мой паспорт 4018294647 мой номер телефона 89112800812 мой имейл nikitasemin@gmail.com ".lower()
+    message = "здравствуйте! время вылета 17:30, дата первое марта. меня зоыут владимир путин и я лечу в индию из домодедова в грозный. мой паспорт 4018294647 мой номер телефона 89112800812 мой имейл nikitasemin@gmail.com ".lower()
     print(message)
     doc = ner.get_entities(message)
     for tag in doc:

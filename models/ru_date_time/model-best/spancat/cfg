@@ -1,0 +1,11 @@
+{
+  "labels":[
+    "date",
+    "time"
+  ],
+  "spans_key":"sc",
+  "threshold":0.5,
+  "max_positive":null,
+  "negative_weight":null,
+  "allow_overlap":true
+}

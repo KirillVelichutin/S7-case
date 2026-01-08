@@ -5,10 +5,10 @@ import json
 
 
 def find_passports(text):
-    df = pd.read_csv('../data/passports_regions_data.csv', encoding='utf-8')
+    df = pd.read_csv('./data/passports_regions_data.csv', encoding='utf-8')
     val_passport_codes = list(map(str, df['Код в серии паспорта РФ'].tolist()))
 
-    df = pd.read_csv('../data/international_data.csv', encoding='utf-8')
+    df = pd.read_csv('./data/international_data.csv', encoding='utf-8')
     val_international_codes = list(map(str, df['Код принадлежности документа'].tolist()))
 
 
@@ -90,7 +90,7 @@ def find_emails(text):
     return emails
 
 def find_iata(text):
-    df = pd.read_csv('../data/airports_rus.csv', encoding='utf-8')
+    df = pd.read_csv('./data/airports_rus.csv', encoding='utf-8')
     val_iata_codes = list(map(str, df['Код ИАТА'].tolist()))
 
     iatas = []
@@ -226,14 +226,7 @@ def process_request(user_message):
                 ents_data.append(order_num)
 
 
-    result = {
-        "message": text,
-        "tokens": ents_data
-    }
-
-    output = json.dumps(result, ensure_ascii=False, indent=2)
-    return output
-
+    return [(ent['tag'], ent['token']) for ent in ents_data]
 
 if __name__ == '__main__':
     user_message = user_message = "я вылетаю в париж 31 декабря S79520, меня зовут сёмин никита мой номер телефона 8 911-280-08-12, мой номер паспорта 40- 18 -295647 я вылетаю из домодедово в париж 64-7202067 ABA 34C0Z0, 5854033941712 test123@mail.museum"

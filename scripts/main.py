@@ -44,22 +44,22 @@ class S7ner():
         seen = set()
         tags = [t for t in tags if not (t[0] in {'date', 'time'} and t[1] in seen or seen.add(t[1]))]
         #check if the contents partially repeat
-        # def is_close(t1, t2, message):
-        #     threshold = len(t1)
-        #     p1, p2 = message.find(t1), message.find(t2)
-        #     if p1 != -1 and p2 != -1 and abs(p1 - p2) <= threshold:
-        #         return message[p1:p2+len(t2)]
+        def is_close(t1, t2, message):
+            threshold = len(t1)
+            p1, p2 = message.find(t1), message.find(t2)
+            if p1 != -1 and p2 != -1 and abs(p1 - p2) <= threshold:
+                return message[p1:p2+len(t2)]
 
-        # for item1 in tags:
-        #     for item2 in tags:
-        #         if item1 != item2:
-        #             connected = is_close(item1[2], item2[2], text)
-        #             tag1 = item1[0]
-        #             tag2 = item2[0]
-        #             if connected and tag1 == tag2:
-        #                 tags.pop(tags.index(item1))
-        #                 tags.pop(tags.index(item2))
-        #                 tags.append((tag1, str(self.standard[tag1](connected)), connected))
+        for item1 in tags:
+            for item2 in tags:
+                if item1 != item2:
+                    connected = is_close(item1[2], item2[2], text)
+                    tag1 = item1[0]
+                    tag2 = item2[0]
+                    if connected and tag1 == tag2:
+                        tags.pop(tags.index(item1))
+                        tags.pop(tags.index(item2))
+                        tags.append((tag1, str(self.standard[tag1](connected)), connected))
 
 
         #people and locations

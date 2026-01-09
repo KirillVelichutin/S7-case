@@ -1,9 +1,11 @@
 import itertools
 import re
 import datetime
+import random
 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import spacy
 
 MONTHS_KEYS = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
 
@@ -299,3 +301,33 @@ def parse_time(message):
         return std_time(message)
     except:
         return 'FAILED_TO_PARSE'
+    
+
+#slicing the message to enhance model performance
+rndcontext = [
+    "у меня проблема с бронированием билета",
+    "как изменить дату вылета?",
+    "хочу вернуть билет, что делать?",
+    "почему не приходит электронный билет?",
+    "помогите выбрать место в салоне",
+    "не могу войти в личный кабинет",
+    "как добавить багаж к заказу?",
+    "рейс задержали, куда обращаться?",
+    "хочу оформить страховку для поездки",
+    "какой у вас телефон поддержки?"
+]
+nlp = spacy.load('ru_core_news_sm')
+def ngrams(message):
+    doc = nlp(message)
+    tokens = [token.text for token in doc]
+    if len(tokens) < 6:
+        doc = nlp(message + ' ' + random.choice(rndcontext))
+        tokens = [token.text for token in doc]
+    ngram_list = []
+    for n in range(2, 7):
+        for i in range(len(tokens) - n + 1):
+            ngram_list.append(' '.join(tokens[i:i + n]))
+    return ngram_list
+
+if __name__ == '__main__':
+    print(parse_date('15 марта 2026'))

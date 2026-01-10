@@ -302,6 +302,12 @@ def parse_time(message):
     except:
         return 'FAILED_TO_PARSE'
     
+def get_dotted_date(message):
+    dates =  re.findall(r'\d{2}[.-]\d{2}[.-]\d{4}', message)
+    datelist = []
+    for date in dates:
+        datelist.append(('date', str(datetime.datetime.strptime(date, "%d.%m.%Y").date()), date))
+    return datelist
 
 #slicing the message to enhance model performance
 rndcontext = [
@@ -359,3 +365,4 @@ def get_datetime_singletoken(sentence):
 
 if __name__ == '__main__':
     print(get_datetime_singletoken('я вылетаю в индию завтра в полночь'))
+    print(get_dotted_date('22.02.2024'))

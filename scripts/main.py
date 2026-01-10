@@ -1,7 +1,7 @@
 import spacy
 import datetime
 
-from get_datetime import parse_time, parse_date, ngrams, get_datetime_singletoken
+from get_datetime import parse_time, parse_date, ngrams, get_datetime_singletoken, get_dotted_date
 from get_docs import process_request
 from get_airports import get_airports, is_airport
 
@@ -34,6 +34,10 @@ class S7ner():
             for span in timedate_spans:
                 tags.append((span.label_, str(self.standard[span.label_](span.text)), span.text))
         tags = list(set(tags))
+
+        #finding all dates written like 23.03.2026
+        for date in get_dotted_date(text):
+            tags.append(date)
 
         #resolving conflicts
         for item in tags:

@@ -1,7 +1,7 @@
 import random
 import os
 
-BOT_TOKEN = "8593188547:AAGGWTBcq6UOi_QTtiaclAXEfzwqoPJ0awY"
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "model-best")
 
 ENTITY_TYPES_TO_FIND = [

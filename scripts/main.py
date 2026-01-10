@@ -1,11 +1,13 @@
 import spacy
+import datetime
 
-from get_datetime import parse_time, parse_date, ngrams
+from get_datetime import parse_time, parse_date, ngrams, get_datetime_singletoken
 from get_docs import process_request
 from get_airports import get_airports, is_airport
 
 rucore = spacy.load("ru_core_news_sm")
 datetime = spacy.load('models/ru_date_time/model-best')
+
 class S7ner():
     conversiontable = {
         'PER': 'person',
@@ -33,7 +35,7 @@ class S7ner():
                 tags.append((span.label_, str(self.standard[span.label_](span.text)), span.text))
         tags = list(set(tags))
 
-        #reolving conflicts
+        #resolving conflicts
         for item in tags:
             try:
                 int(''.join(''.join(item[1].split('-')).split(':'))) # checking for failed parses
@@ -61,6 +63,9 @@ class S7ner():
                         tags.pop(tags.index(item2))
                         tags.append((tag1, str(self.standard[tag1](connected)), connected))
 
+        #single-token date and time
+        for item in get_datetime_singletoken(text):
+            tags.append(item)
 
         #people and locations
         rucore_doc = rucore(text)
@@ -91,7 +96,7 @@ class S7ner():
 
 if __name__ == "__main__":
     ner = S7ner()
-    message = "здравствуйте! время вылета 17:30, дата первое марта. меня зоыут владимир путин и я лечу в индию из домодедова в грозный. мой паспорт 4018294647 мой номер телефона 89112800812 мой имейл nikitasemin@gmail.com ".lower()
+    message = "здравствуйте! время вылета 17:30, дата первое марта. меня зоыут владимир путин и я лечу в индию из домодедова в грозный. мой паспорт 4018294647 мой номер телефона 89112800812 мой имейл nikitasemin@gmail.com. завтра в полночь я иду на ебанутейший банкет.".lower()
     while True:
         message = input('type: ')
         doc = ner.get_entities(message)

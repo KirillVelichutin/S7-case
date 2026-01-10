@@ -329,5 +329,33 @@ def ngrams(message):
             ngram_list.append(' '.join(tokens[i:i + n]))
     return ngram_list
 
+# searching for single-token date and time
+all_single_tokens = {
+    "сегодня":     lambda: datetime.date.today(),
+    "завтра":      lambda: datetime.date.today() + datetime.timedelta(days=1),
+    "вчера":       lambda: datetime.date.today() - datetime.timedelta(days=1),
+    "послезавтра": lambda: datetime.date.today() + datetime.timedelta(days=2),
+    "позавчера":   lambda: datetime.date.today() - datetime.timedelta(days=2),
+    "сейчас":      lambda: datetime.datetime.now().time(),
+    "полночь":     lambda: datetime.time(0, 0),
+    "полдень":     lambda: datetime.time(12, 0)
+}
+
+def is_datetime_singletoken(token):
+    return most_similar(token, list(all_single_tokens.keys()))  
+
+def get_datetime_singletoken(sentence):
+    tokens = sentence.split()
+    datetimes = []
+    for token in tokens:
+        result = is_datetime_singletoken(token)
+        if result != 'UNRECOGNIZED':
+            datetime_obj = all_single_tokens[result]()
+            if isinstance(datetime_obj, datetime.date):
+                datetimes.append(('date', str(datetime_obj), result))
+            elif isinstance(datetime_obj, datetime.time):
+                datetimes.append(('time', str(datetime_obj), result))
+    return datetimes
+
 if __name__ == '__main__':
-    print(parse_date('15 марта 2026'))
+    print(get_datetime_singletoken('я вылетаю в индию завтра в полночь'))

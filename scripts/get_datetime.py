@@ -66,11 +66,11 @@ date_words = MONTHS | NUMBERS
 
 date_list = list(itertools.chain.from_iterable(list(date_words.values())))
 
-def most_similar(target, words):
+def most_similar(target, words, threshold=0.6):
     vectorizer = CountVectorizer(analyzer='char', ngram_range=(1,2))
     vectors = vectorizer.fit_transform([target] + words)
     similarities = cosine_similarity(vectors[0:1], vectors[1:])[0]
-    if similarities.max() < 0.6:
+    if similarities.max() < threshold:
         return 'UNRECOGNIZED'
     return words[similarities.argmax()]
 
@@ -348,7 +348,7 @@ all_single_tokens = {
 }
 
 def is_datetime_singletoken(token):
-    return most_similar(token, list(all_single_tokens.keys()))  
+    return most_similar(token, list(all_single_tokens.keys()), threshold=0.7)  
 
 def get_datetime_singletoken(sentence):
     tokens = sentence.split()

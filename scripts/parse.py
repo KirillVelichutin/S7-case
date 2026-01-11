@@ -1,6 +1,6 @@
 import json
 import spacy
-import string
+import re
 import pandas as pd
 from spacy.tokens import DocBin
 from spacy.training import offsets_to_biluo_tags
@@ -32,8 +32,7 @@ def examples(path):
             entities = transmute(item, 'entities')
             training_data.append((text, entities))
 
-    return training_data # [(text, {'entities': [()]})]
-                         # to use as spacy Example: examples = [Example.from_dict(nlp.make_doc(text), example) for text, example in data]
+    return training_data 
 
 def to_spacy(path, save_to):
 
@@ -161,8 +160,10 @@ def remove_faulty(path):
 
 def prepare_data(path):
     with open(path, 'r', encoding='utf-8-sig') as f:
-            data = json.load(f)
-            
+        lowertext = f.read().lower()
+        data = json.loads(lowertext)
+    
+    
     train_ratio = 0.8
     split_index = int(len(data) * train_ratio)
     train_data = data[:split_index]
@@ -189,79 +190,211 @@ def prepare_data(path):
     convert_to_spacy('../data/json_format/val_nofaulty.json', "dev")
 
 
-def process_request(nlp, user_message):
-    doc = nlp(user_message)
-    
+def find_passports(text):
     df = pd.read_csv('../data/passports_regions_data.csv')
     val_passport_codes = list(map(str, df['Код в серии паспорта РФ'].tolist()))
-    
+
     df = pd.read_csv('../data/international_data.csv')
     val_international_codes = list(map(str, df['Код принадлежности документа'].tolist()))
+
+
+    passports = []
+
+    passport_pattern = r'\b(\d{2})[\s-]?(\d{2})[\s-]?(\d{6})\b'
+    international_pattern = r'\b(\d{2})[-\s]?(\d{7})\b'
+
+    for match in re.finditer(passport_pattern, text):
+        raw = match.group()
+
+        if raw[:2] in val_passport_codes:
+            formatted = raw[:4] + ' ' + raw[4:]
+            passports.append({
+                "token": formatted,
+                "tag": "PASSPORT",
+            })
+
+    for match in re.finditer(international_pattern, text):
+        raw = match.group()
+
+        if raw[:2] in val_international_codes:
+            formatted = raw[:2] + ' ' + raw[2:]
+            passports.append({
+                "token": formatted,
+                "tag": "INTERNATIONAL",
+            })
+
+    return passports
+
+def find_emails(text):    
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
     
+    emails = []
+    
+    for match in re.finditer(email_pattern, text):
+        inst = match.group()
+        
+        ent_type = "EMAIL"
+        
+        emails.append({
+            "token": inst,
+            "tag": ent_type,
+        })
+            
+    return emails
+
+def find_phones(text):    
+    phone_pattern = r'(?:\+?7|\b8)[\s\-()]?\d{3}[\s\-()]?\d{3}[\s\-()]?\d{2}[\s\-()]?\d{2}'
+    
+    phones = []
+    
+    for match in re.finditer(phone_pattern, text):
+        raw_match = match.group()
+        
+        cleaned = raw_match.replace(' ', '')
+        
+        if cleaned.startswith('+7') or cleaned.startswith('8'):
+            digits = cleaned[1:] if cleaned.startswith('+7') else cleaned
+            if len(digits) == 11 and digits.isdigit():
+                formatted = '+7 (' + digits[1:4] + ') ' + digits[4:7] + '-' + digits[7:9] + '-' + digits[9:11]
+            else:
+                formatted = cleaned
+        else:
+            formatted = cleaned
+
+        ent_type = "PHONE"
+        
+        phones.append({
+            "token": formatted,
+            "tag": ent_type,
+        })
+    
+    return phones
+
+def find_iata(text):
+    df = pd.read_csv('../data/airports_rus.csv')
+    val_iata_codes = list(map(str, df['Код ИАТА'].tolist()))
+    
+    iatas = []
+    
+    iata_pattern = r'\b[A-Za-z]{3}\b'
+    
+    for match in re.finditer(iata_pattern, text):
+        raw_code = match.group().upper()
+        
+        if raw_code in val_iata_codes:
+            iatas.append({
+                "token": raw_code,
+                "tag": "IATA",
+            })
+    
+    return iatas
+
+def find_order_num(text):
+    order_num_pattern = r'\b(?!S7)(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{6,7}\b'
+    
+    order_nums = []
+    
+    for match in re.finditer(order_num_pattern, text):
+        raw_token = match.group()
+        
+        normalized_token = raw_token.upper()
+        ent_type = "ORDER_NUMBER"
+        
+        order_nums.append({
+            "token": normalized_token,
+            "tag": ent_type,
+        })
+    
+    return order_nums
+
+def find_ticket_num(text):
+    ticket_num_pattern = r'\b585\d{10}\b'
+    
+    ticket_nums = []
+    
+    for match in re.finditer(ticket_num_pattern, text):
+        raw_token = match.group()
+        
+        normalized_token = raw_token.upper()
+        ent_type = "TICKET_NUMBER"
+        
+        ticket_nums.append({
+            "token": normalized_token,
+            "tag": ent_type,
+        })
+    
+    return ticket_nums
+
+def find_flight(text):
+    flight_pattern = r'\bS7\s?\d{1,4}\b'
+    
+    flights = []
+    
+    for match in re.finditer(flight_pattern, text):
+        raw_match = match.group()
+        
+        normalized = "S7 " + raw_match[2:].replace(" ", "")
+        ent_type = "FLIGHT"
+        
+        flights.append({
+            "token": normalized,
+            "tag": ent_type,
+        })
+    
+    return flights
+    
+
+def process_request(user_message):
+    text = re.sub(r'(\d)[\s*\-\(\)]+(?=\d)', r'\1', user_message)
+
     ents_data = []
     
-    for ent in doc.ents:
-        text = ent.text.upper()
-        ent_type = ent.label_
+    flights = find_flight(text)
+    passports = find_passports(text)
+    phones = find_phones(text)
+    emails = find_emails(text)
+    iatas = find_iata(text)
+    ticket_nums = find_ticket_num(text)
+    order_nums = find_order_num(text)
+    
+    if passports:
+        for passport in passports:
+            ents_data.append(passport)
+    
+    if phones:
+        for phone in phones:
+            ents_data.append(phone)
+    
+    if emails:
+        for email in emails:
+            ents_data.append(email)
+            
+    if iatas:
+        for iata in iatas:
+            ents_data.append(iata)
+    
+    if ticket_nums:
+        for ticket_num in ticket_nums:
+            ents_data.append(ticket_num)
+            
+    if flights:
+        for flight in flights:
+            ents_data.append(flight)
+    
+    if order_nums:
+        for order_num in order_nums:
+            if order_num["token"].lower() not in [data["token"] for data in ents_data]:
+                ents_data.append(order_num)
 
-        if ent_type == "PASSPORT" or ent_type == "INTERNATIONAL":
-            spec_chars = string.punctuation + '«»\t—…’'
-            text = "".join([ch for ch in text if ch not in spec_chars])
-            text = "".join(text.split())
-            
-            if ent_type == "PASSPORT":
-                if text[:2] in val_passport_codes:
-                    ent_type = "VALID_PASSPORT"
-                else:
-                    ent_type = "INVALID_PASSPORT"
-
-            elif ent_type == "INTERNATIONAL":
-                if text[:2] in val_international_codes:
-                    ent_type = "VALID_INTERNATIONAL"
-                else:
-                    ent_type = "INVALID_INTERNATIONAL"
-                    
-        elif ent_type == "COUNTRY" or ent_type == "NAME" or ent_type == "CITY":
-            nlp = spacy.load("ru_core_news_sm")
-            doc = nlp(text)
-            
-            normalized = []
-            
-            for token in doc:
-                normalized.append(token.lemma_.upper())
-            
-            text = ' '.join(normalized)
-        
-        
-        # if ent_type == "DOCUMENT":
-        #     passport_pattern = r'\b(?:\d{2}\s?\d{2})\s?\d{6}\b'
-        #     passport = re.findall(passport_pattern, user_message)
-        #     international_pattern = r'\b(?:\d{2}\s?\d{7}\b'
-        #     international = re.findall(international_pattern, user_message)
-        #     if ent in passport:
-        #         ent_type = "PASSPORT"
-        #     elif ent in international:
-        #         ent_type = "INTERNATIONAL"
-        
-        ents_data.append({
-            "token": text,
-            "ner_tag": ent_type
-        })
 
     result = {
-        "text": user_message,
+        "message": text,
         "tokens": ents_data
     }
-    
     
     output = json.dumps(result, ensure_ascii=False, indent=2)
     return output
 
-
-if __name__ == '__main__':
-    nlp = spacy.load("../models/model-best")
-    
-    user_message = "Сервис - ГОВНО! Почему Артем чемодана по рейсу ещё нет?!!!! Летел 12.03.2025 в Мексику. Держите, блядь, данные моего внутреннего паспорта 8952 100590 и этого грёбаного загранника 72-2720007."
-    
-    
-    print(process_request(nlp, user_message))
+if __name__ == "__main__":
+    user_message = user_message = "я вылетаю в париж 31 декабря S79520, меня зовут сёмин никита мой номер телефона +7 (285) 832-04-84. мой номер паспорта 40- 18 -295647 я вылетаю из домодедово в париж 64-7202067 aba 34C0Z0, 5854033941712 test123@mail.com"
+    print(process_request(user_message))

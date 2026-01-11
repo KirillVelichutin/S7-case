@@ -1,99 +1,167 @@
-import subprocess
-import sys
-from spacy.tokens import DocBin
-from thinc.api import Config
+from spacy.tokens import DocBin, SpanGroup
 import spacy
+from spacy.cli.train import train
+from pathlib import Path
+import spacy
+from thinc.api import require_gpu
+import json
 
-from visualizer import visualize_from_jsonl
 from parse import prepare_data
 
 
+def make_snapcat(json_path, export_path):
+    nlp = spacy.blank("ru")
+    with open(json_path, 'r') as f:
+        loaded = json.load(f)
+    db = DocBin()
+    for item in loaded:
+        text = item["text"]
+        doc = nlp.make_doc(text)
+        spans = []
+        for start_char, end_char, label in item["entities"]:
+            span = doc.char_span(start_char, end_char, label=label)
+            if span is None:
+                print(f"Warning: Could not create span for text '{text[start_char:end_char]}'")
+                print(f"  Character positions: {start_char}-{end_char}")
+                print(f"  Text at that position: '{text[start_char:end_char]}'")
+                if text[start_char:end_char] in text:
+                    actual_start = text.find(text[start_char:end_char])
+                    if actual_start != -1:
+                        span = doc.char_span(actual_start, actual_start + (end_char - start_char), label=label)
+                        print(f"  Fixed: Using positions {actual_start}-{actual_start + (end_char - start_char)}")
+            if span:
+                spans.append(span)
+        group = SpanGroup(doc, name="sc", spans=spans)
+        doc.set_ents(spans)
+        doc.spans["sc"] = group
+        db.add(doc)
+    db.to_disk(export_path)
+    print(f"\nCreated training data with {len(db)} documents")
+
+
+
 def training(config_path, output_dir, train_path, dev_path, model):
-    config = Config().from_disk(config_path)
+    # config = Config().from_disk(config_path)
     doc_bin = DocBin().from_disk(train_path)
     
     
-    nlp = spacy.blank("ru")
-    
     if model == "null":
-        print("new model created")
+        nlp = spacy.blank("ru")
+        print("=== new model created ===")
     else:
         nlp = spacy.load(f"{model}")
-        config["initialize"]["init_tok2vec"] = model
-        print(f"loaded: {model}")
+        # config["initialize"]["init_tok2vec"] = model
+        print(f"=== loaded: {model} ===")
 
 
+    # docs = list(doc_bin.get_docs(nlp.vocab))
+    # n_examples = len(docs)
+    # print(n_examples)
+    
+    doc_bin = DocBin().from_disk(f"{train_path}")
     docs = list(doc_bin.get_docs(nlp.vocab))
-    n_examples = len(docs)
-    print(n_examples)
+
+    total_tokens = sum(len(doc) for doc in docs)
+    print(f"* Tokens: {total_tokens}")
+
     
-    if n_examples < 1000:
-        batch_size = 16
-        max_epochs = 100
-        eval_freq = 50
-    elif n_examples < 10000:
-        batch_size = 32
-        max_epochs = 50
-        eval_freq = 10
-    else:
-        batch_size = 128
-        max_epochs = 20
-        eval_freq = 10
         
-        
-    config["paths"]["train"] = train_path
-    config["paths"]["dev"] = dev_path
-    config["corpora"]["dev"]["path"] = "${paths.dev}"
-    config["corpora"]["train"]["path"] = "${paths.dev}"
-            
-    config["nlp"]["batch_size"] = batch_size
-    config["training"]["max_epochs"] = max_epochs
-    config["training"]["dropout"] = 0.2
-    config["training"]["optimizer"]["learn_rate"] = 0.002
-    config["training"]["max_steps"] = 20000
-    config["training"]["eval_frequency"] = eval_freq
     
-    config["training"]["logger"]["@loggers"] = "spacy.ConsoleLogger.v3"
-    config["training"]["logger"]["progress_bar"] = "eval"
-    config["training"]["logger"]["console_output"] = "true"
-    config["training"]["logger"]["output_file"] = "../analysis/training_history/training_history.jsonl"
+    num_entities = 0
+    entity_counts_by_label = {}
+
+    for doc in doc_bin.get_docs(nlp.vocab):
+        num_entities += len(doc.ents)
+        for ent in doc.ents:
+            label = ent.label_
+            entity_counts_by_label[label] = entity_counts_by_label.get(label, 0) + 1
+    
+    
+    max_entity_counts = max(entity_counts_by_label.values())
+    
+    batch_size = 2000
+    eval_freq = 10
+    max_epochs = 100
+    drop = 0.2
+        
+    learn_rate = 0.001
+    
+    print(f"* Entities: {num_entities}")
+    print(f"* Max entity counts per label: {max_entity_counts}")
+    print(f"* Batch size: {batch_size}")
     
 
-    config.to_disk(config_path)
-    print("Config updated")
-    
-    cmd = [
-        sys.executable, "-m", "spacy", "train",
-        config_path,
-        "--output", output_dir,
-        "--paths.train", train_path,
-        "--paths.dev", dev_path,
-        "--training.max_epochs", f"{max_epochs}",
-    ]
+
         
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(f"* Max epochs: {max_epochs}")
+    print(f"* Dropout: {drop}")
+    # print(f"* Learn rate: {learn_rate}")
+    print(f"* Eval freq: {eval_freq}")
         
-    print(result.stdout)
+        
+    print("=== Training starts ===")
+    
+    config_path = Path(f"{config_path}")
+    output_path = Path(f"{output_dir}")
+    train_path = Path(f"{train_path}")
+    dev_path = Path(f"{dev_path}")
+
+    train(
+        config_path=config_path,
+        output_path=output_path,
+        overrides={
+            "paths.train": str(train_path),
+            "paths.dev": str(dev_path),
+            "training.seed": 42,
+            "corpora.dev.path": "${paths.dev}",
+            "corpora.train.path": "${paths.train}",
+            "nlp.batch_size": batch_size,
+            "training.max_epochs": max_epochs,
+            "training.dropout": drop,
+            # "training.optimizer.learn_rate": learn_rate,
+            "training.max_steps": 20000,
+            "training.eval_frequency": eval_freq,
+            "training.logger.@loggers": "spacy.ConsoleLogger.v3",
+            "training.logger.progress_bar": "eval",
+            "training.logger.console_output": "true",
+            "training.logger.output_file": "../analysis/training_history/training_history.jsonl"
+        },
+        use_gpu=0,
+    )
 
 
 
 if __name__ == '__main__':
+    if require_gpu(0):
+        print("spaCy успешно использует GPU")
+    else:
+        print("GPU недоступен для spaCy")
+        
+    gpu = spacy.prefer_gpu()
+    print(gpu)
+
+    
+    # train_path = "../data/json_format/train_nofaulty.json"
+    # val_path = "../data/json_format/val_nofaulty.json"
+    spanpath = "../data/spacy_format/spans.spacy"
+    validpath = "../data/spacy_format/dev.spacy"
+    
+    # make_snapcat(train_path, spanpath)
+    # make_snapcat(val_path, validpath)
+    
+    # prepare_data("../data/initial_data/composit3.json")
+    
     config_path = "../models/config.cfg"
     output_dir = "../models"
-    train_path = "../data/spacy_format/train.spacy"
-    dev_path = "../data/spacy_format/dev.spacy"
+    # train_path = "../data/spacy_format/train.spacy"
+    # dev_path = "../data/spacy_format/dev.spacy"
     
-    prepare_data("../data/initial_data/composit2.json")
-    
-    model = "null"
+    model = "ru_core_news_sm"
     
     training(
             config_path,
             output_dir,
-            train_path,
-            dev_path,
+            spanpath,
+            validpath,
             model
             )
-    
-    visualize_from_jsonl("../analysis/training_history/training_history.jsonl")

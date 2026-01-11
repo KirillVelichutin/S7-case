@@ -70,7 +70,6 @@ def replaceAndLabel(message):
                 augmented_message = f'ERROR: {obj['text']}'
             obj['text'] = augmented_message
     
-    # marking out the message
     for key in tmp_entities:
         obj['entities'].append((obj['text'].find(key), obj['text'].find(key) + len(key), tmp_entities[key]))
     
